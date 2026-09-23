@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "create-admin": "node --experimental-strip-types --experimental-transform-types scripts/create-admin.ts",
+    "reset-admin-password": "node --experimental-strip-types --experimental-transform-types scripts/reset-admin-password.ts",
+    "check-admin-environment": "node --experimental-strip-types --experimental-transform-types scripts/check-admin-environment.ts",
     "cleanup-inactive-reviews": "node --experimental-strip-types --experimental-transform-types scripts/cleanup-inactive-reviews.ts",
     "fix:delivered-cod-payment": "node --experimental-strip-types --experimental-transform-types scripts/fix-delivered-cod-payment-status.ts"
   },
