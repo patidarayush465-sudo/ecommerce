@@ -59,6 +59,16 @@ export async function POST(request: Request) {
         {
           success: false,
           message: "Invalid email or password",
+          // TEMPORARY DIAGNOSTIC RESPONSE: remove after production diagnosis.
+          diagnostic: {
+            emailReceived: Boolean(email),
+            normalizedEmailLength: normalizedEmail.length,
+            userFound: false,
+            userRoleIsAdmin: false,
+            passwordComparisonReached: false,
+            passwordMatches: false,
+            branch: "NO_USER",
+          },
         },
         { status: 401 },
       );
@@ -91,6 +101,16 @@ export async function POST(request: Request) {
         {
           success: false,
           message: "Invalid email or password",
+          // TEMPORARY DIAGNOSTIC RESPONSE: remove after production diagnosis.
+          diagnostic: {
+            emailReceived: Boolean(email),
+            normalizedEmailLength: normalizedEmail.length,
+            userFound: true,
+            userRoleIsAdmin: user.role === UserRole.ADMIN,
+            passwordComparisonReached: true,
+            passwordMatches: false,
+            branch: "PASSWORD_MISMATCH",
+          },
         },
         { status: 401 },
       );
