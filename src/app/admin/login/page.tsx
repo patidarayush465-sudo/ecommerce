@@ -30,6 +30,16 @@ export default function AdminLoginPage() {
     setIsSubmitting(true);
 
     try {
+      // TEMPORARY ADMIN LOGIN DIAGNOSTIC: remove after credential testing.
+      if (process.env.NODE_ENV === "development") {
+        console.info("Temporary admin login diagnostic", {
+          emailLength: values.email.length,
+          emailDomain: values.email.split("@").at(-1) ?? "",
+          passwordLength: values.password.length,
+          passwordProvided: values.password.length > 0,
+        });
+      }
+
       const response = await fetch("/api/auth/admin/login-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -4,15 +4,13 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import User, { UserRole } from "@/models/User";
 
-const ADMIN_SALT_ROUNDS = 12;
-
-// Temporary diagnostic endpoint; remove it after the production login diagnosis is complete.
+// TEMPORARY: remove this endpoint after the production login diagnosis is complete.
 export async function POST(request: Request) {
   const diagnosticSecret = process.env.ADMIN_DIAGNOSTIC_SECRET;
   const providedSecret = request.headers.get("x-admin-diagnostic-secret");
 
   if (!diagnosticSecret || providedSecret !== diagnosticSecret) {
-    return NextResponse.json({ success: false }, { status: 401 });
+    return new NextResponse(null, { status: 401 });
   }
 
   try {
@@ -21,12 +19,11 @@ export async function POST(request: Request) {
     if (
       typeof body !== "object" ||
       body === null ||
-      !("newPassword" in body) ||
-      typeof body.newPassword !== "string" ||
-      body.newPassword.length < 8
+      !("password" in body) ||
+      typeof body.password !== "string"
     ) {
       return NextResponse.json(
-        { success: false, message: "newPassword must be at least 8 characters" },
+        { userExists: false, roleIsAdmin: false, passwordMatches: false },
         { status: 400 },
       );
     }
@@ -35,7 +32,7 @@ export async function POST(request: Request) {
 
     if (!adminEmail) {
       return NextResponse.json(
-        { success: false, message: "Diagnostic unavailable" },
+        { userExists: false, roleIsAdmin: false, passwordMatches: false },
         { status: 500 },
       );
     }
@@ -43,41 +40,35 @@ export async function POST(request: Request) {
     await connectToDatabase();
 
     const adminUser = await User.findOne({ email: adminEmail }).select(
-      "_id role",
+      "+password role",
     );
 
     if (!adminUser) {
       return NextResponse.json(
-        { success: false, message: "Admin user not found" },
+        { userExists: false, roleIsAdmin: false, passwordMatches: false },
         { status: 404 },
       );
     }
 
-    if (adminUser.role !== UserRole.ADMIN) {
+    const roleIsAdmin = adminUser.role === UserRole.ADMIN;
+
+    if (!roleIsAdmin) {
       return NextResponse.json(
-        { success: false, message: "User is not an admin" },
+        { userExists: true, roleIsAdmin: false, passwordMatches: false },
         { status: 403 },
       );
     }
 
-    const hashedPassword = await bcrypt.hash(
-      body.newPassword,
-      ADMIN_SALT_ROUNDS,
-    );
-
-    await User.updateOne(
-      { _id: adminUser._id },
-      { $set: { password: hashedPassword } },
-      { timestamps: false },
-    );
+    const matches = await bcrypt.compare(body.password, adminUser.password);
 
     return NextResponse.json({
-      success: true,
-      message: "Admin password updated successfully",
+      userExists: true,
+      roleIsAdmin: true,
+      passwordMatches: matches,
     });
   } catch {
     return NextResponse.json(
-      { success: false, message: "Diagnostic unavailable" },
+      { userExists: false, roleIsAdmin: false, passwordMatches: false },
       { status: 500 },
     );
   }
