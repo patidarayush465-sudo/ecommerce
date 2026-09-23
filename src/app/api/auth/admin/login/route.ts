@@ -5,6 +5,19 @@ import { generateAccessToken } from "@/lib/jwt";
 import User, { UserRole } from "@/models/User";
 import { adminLoginSchema } from "@/validations/auth.validation";
 
+// TEMPORARY: remove this diagnostic and its calls after the production login diagnosis.
+function logTemporaryAdminLoginDiagnostic(details: {
+  emailReceived: boolean;
+  normalizedEmailLength: number;
+  userFound: boolean;
+  userRoleIsAdmin: boolean;
+  passwordComparisonReached: boolean;
+  passwordMatches: boolean;
+  branch: "NO_USER" | "PASSWORD_MISMATCH";
+}) {
+  console.info("Temporary admin login diagnostic", details);
+}
+
 export async function POST(request: Request) {
   try {
     const body: unknown = await request.json();
@@ -32,6 +45,16 @@ export async function POST(request: Request) {
     );
 
     if (!user) {
+      logTemporaryAdminLoginDiagnostic({
+        emailReceived: Boolean(email),
+        normalizedEmailLength: normalizedEmail.length,
+        userFound: false,
+        userRoleIsAdmin: false,
+        passwordComparisonReached: false,
+        passwordMatches: false,
+        branch: "NO_USER",
+      });
+
       return NextResponse.json(
         {
           success: false,
@@ -54,6 +77,16 @@ export async function POST(request: Request) {
     const passwordMatches = await bcrypt.compare(password, user.password);
 
     if (!passwordMatches) {
+      logTemporaryAdminLoginDiagnostic({
+        emailReceived: Boolean(email),
+        normalizedEmailLength: normalizedEmail.length,
+        userFound: true,
+        userRoleIsAdmin: user.role === UserRole.ADMIN,
+        passwordComparisonReached: true,
+        passwordMatches: false,
+        branch: "PASSWORD_MISMATCH",
+      });
+
       return NextResponse.json(
         {
           success: false,
