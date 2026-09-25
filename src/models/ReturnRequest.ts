@@ -78,6 +78,23 @@ const ReturnStatusHistorySchema = new Schema(
   { _id: false },
 );
 
+const CodRefundDestinationSchema = new Schema(
+  {
+    refundMethod: {
+      type: String,
+      enum: ["BANK_ACCOUNT", "UPI"],
+      required: true,
+    },
+    bankAccount: {
+      accountHolderName: { type: String, trim: true },
+      accountNumber: { type: String, trim: true },
+      ifsc: { type: String, trim: true, uppercase: true },
+    },
+    upiId: { type: String, trim: true, lowercase: true },
+  },
+  { _id: false, strict: true },
+);
+
 const ReturnRequestSchema = new Schema(
   {
     user: {
@@ -109,6 +126,9 @@ const ReturnRequestSchema = new Schema(
       type: String,
       trim: true,
       maxlength: 500,
+    },
+    codRefundDestination: {
+      type: CodRefundDestinationSchema,
     },
     status: {
       type: String,

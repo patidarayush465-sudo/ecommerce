@@ -12,6 +12,7 @@ import ReturnRequest, { ReturnReason, ReturnStatus } from "@/models/ReturnReques
 import { UserRole } from "@/models/User";
 import {
   createReturnRequest,
+  ReturnRefundDestinationError,
   ReturnQuantityError,
 } from "@/services/return.service";
 import { createReturnRequestSchema } from "@/validations/return.validation";
@@ -121,7 +122,8 @@ function handleReturnRequestError(error: unknown) {
     error instanceof AuthenticationError ||
     error instanceof AuthorizationError ||
     error instanceof ReturnRequestError ||
-    error instanceof ReturnQuantityError
+      error instanceof ReturnQuantityError ||
+      error instanceof ReturnRefundDestinationError
   ) {
     return NextResponse.json(
       { success: false, message: error.message },
@@ -163,7 +165,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { orderId, items, reason, reasonDetails } = validationResult.data;
+      const { orderId, items, reason, reasonDetails, refundDestination } = validationResult.data;
     await connectToDatabase();
     const session = await mongoose.startSession();
     let createdReturnRequest;
@@ -178,7 +180,7 @@ export async function POST(request: Request) {
           _id: orderId,
           user: userId,
         })
-          .select("_id user orderStatus items")
+            .select("_id user orderStatus paymentMethod items")
           .session(session)
           .lean();
 
@@ -192,6 +194,7 @@ export async function POST(request: Request) {
           items,
           reason: reason as ReturnReason,
           reasonDetails,
+            refundDestination,
           session,
         });
       });

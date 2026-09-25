@@ -91,6 +91,20 @@ const ReturnRefundSchema = new Schema(
       enum: Object.values(RefundPaymentMethod),
       required: true,
     },
+    refundMethod: {
+      type: String,
+      enum: ["BANK_ACCOUNT", "UPI"],
+    },
+    bankAccount: {
+      accountHolderName: { type: String, trim: true },
+      accountNumber: { type: String, trim: true },
+      ifsc: { type: String, trim: true, uppercase: true },
+    },
+    upiId: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
     paymentStatus: {
       type: String,
       enum: Object.values(RefundStatus),

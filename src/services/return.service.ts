@@ -1,11 +1,15 @@
 import mongoose from "mongoose";
 
-import { OrderStatus } from "@/models/Order";
+import { OrderStatus, PaymentMethod } from "@/models/Order";
 import ReturnRequest, {
   ReturnReason,
   ReturnStatus,
 } from "@/models/ReturnRequest";
 import type { RequestedReturnItem } from "@/validations/return.validation";
+import {
+  codRefundDestinationSchema,
+  type CodRefundDestination,
+} from "@/validations/refund.validation";
 
 type ReturnOrderItem = {
   product: { toString(): string };
@@ -19,6 +23,7 @@ type ReturnOrder = {
   _id: { toString(): string };
   user: { toString(): string };
   orderStatus: OrderStatus;
+  paymentMethod: PaymentMethod;
   items: ReturnOrderItem[];
 };
 
@@ -45,6 +50,15 @@ export class ReturnQuantityError extends Error {
   constructor() {
     super("Requested return quantity exceeds the remaining returnable quantity.");
     this.name = "ReturnQuantityError";
+  }
+}
+
+export class ReturnRefundDestinationError extends Error {
+  status = 400;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ReturnRefundDestinationError";
   }
 }
 
@@ -176,6 +190,7 @@ export async function createReturnRequest({
   items,
   reason,
   reasonDetails,
+  refundDestination,
   session,
 }: {
   order: ReturnOrder | null;
@@ -183,6 +198,7 @@ export async function createReturnRequest({
   items: RequestedReturnItem[];
   reason: ReturnReason;
   reasonDetails?: string;
+  refundDestination?: CodRefundDestination;
   session?: mongoose.ClientSession;
 }) {
   const eligibility = validateReturnEligibility(order, userId);
@@ -191,6 +207,21 @@ export async function createReturnRequest({
   }
   if (!order) {
     throw new Error("Order not found");
+  }
+
+  let codRefundDestination: CodRefundDestination | undefined;
+  if (order.paymentMethod === PaymentMethod.COD) {
+    const destinationResult = codRefundDestinationSchema.safeParse(refundDestination);
+    if (!destinationResult.success) {
+      throw new ReturnRefundDestinationError(
+        "A valid COD refund destination is required",
+      );
+    }
+    codRefundDestination = destinationResult.data;
+  } else if (refundDestination !== undefined) {
+    throw new ReturnRefundDestinationError(
+      "COD refund destination is only valid for COD orders",
+    );
   }
 
   const existingReturns = await ReturnRequest.find({
@@ -238,6 +269,7 @@ export async function createReturnRequest({
     items: snapshots,
     reason,
     reasonDetails,
+    ...(codRefundDestination ? { codRefundDestination } : {}),
     status: ReturnStatus.REQUESTED,
     requestedAt,
     statusHistory: [

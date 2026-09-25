@@ -18,6 +18,16 @@ export class ReturnRefundProcessingError extends Error {
   }
 }
 
+export class CodRefundProcessingError extends Error {
+  constructor(
+    message: string,
+    public readonly status = 400,
+  ) {
+    super(message);
+    this.name = "CodRefundProcessingError";
+  }
+}
+
 type ReturnRefundDocument = {
   _id: { toString(): string };
   order: { toString(): string };
@@ -221,4 +231,77 @@ export async function processReturnRefund(
     processed: true,
     skipped: false,
   });
+}
+
+function assertValidCodRefundId(refundId: string) {
+  if (!mongoose.Types.ObjectId.isValid(refundId)) {
+    throw new CodRefundProcessingError("Invalid refund ID", 400);
+  }
+}
+
+export async function manuallyConfirmCodRefund(refundId: string) {
+  assertValidCodRefundId(refundId);
+  const now = new Date();
+  const claimedRefund = await ReturnRefund.findOneAndUpdate(
+    {
+      _id: refundId,
+      paymentMethod: RefundPaymentMethod.COD,
+      paymentStatus: { $in: [RefundStatus.PENDING, RefundStatus.FAILED] },
+    },
+    {
+      $set: { paymentStatus: RefundStatus.PROCESSING, lastAttemptAt: now },
+      $inc: { retryCount: 1 },
+      $unset: { failedAt: "", failureReason: "" },
+    },
+    { returnDocument: "after" },
+  ).lean();
+
+  if (!claimedRefund) {
+    const currentRefund = await ReturnRefund.findById(refundId).lean();
+    if (!currentRefund) throw new CodRefundProcessingError("Refund record not found", 404);
+    if (currentRefund.paymentMethod !== RefundPaymentMethod.COD) {
+      throw new CodRefundProcessingError("This endpoint only processes COD refunds", 409);
+    }
+    if (currentRefund.paymentStatus === RefundStatus.PROCESSED) return { refund: currentRefund, idempotent: true };
+    if (currentRefund.paymentStatus === RefundStatus.PROCESSING) {
+      throw new CodRefundProcessingError("Refund is already processing", 409);
+    }
+    throw new CodRefundProcessingError("COD refund is not eligible for manual processing", 409);
+  }
+
+  const processedAt = new Date();
+  const processedRefund = await ReturnRefund.findOneAndUpdate(
+    { _id: refundId, paymentMethod: RefundPaymentMethod.COD, paymentStatus: RefundStatus.PROCESSING },
+    { $set: { paymentStatus: RefundStatus.PROCESSED, processedAt, lastAttemptAt: processedAt }, $unset: { failedAt: "", failureReason: "" } },
+    { returnDocument: "after" },
+  ).lean();
+  if (!processedRefund) throw new CodRefundProcessingError("Unable to finalize COD refund confirmation", 500);
+  return { refund: processedRefund, idempotent: false };
+}
+
+export async function markCodRefundFailed(refundId: string, failureReason: string) {
+  assertValidCodRefundId(refundId);
+  const normalizedReason = failureReason.trim();
+  if (!normalizedReason) throw new CodRefundProcessingError("Failure reason is required", 400);
+  const failedAt = new Date();
+  const failedRefund = await ReturnRefund.findOneAndUpdate(
+    {
+      _id: refundId,
+      paymentMethod: RefundPaymentMethod.COD,
+      paymentStatus: { $in: [RefundStatus.PENDING, RefundStatus.PROCESSING] },
+    },
+    { $set: { paymentStatus: RefundStatus.FAILED, failedAt, lastAttemptAt: failedAt, failureReason: normalizedReason }, $inc: { retryCount: 1 } },
+    { returnDocument: "after" },
+  ).lean();
+  if (failedRefund) return { refund: failedRefund, idempotent: false };
+
+  const currentRefund = await ReturnRefund.findById(refundId).lean();
+  if (!currentRefund) throw new CodRefundProcessingError("Refund record not found", 404);
+  if (currentRefund.paymentMethod !== RefundPaymentMethod.COD) {
+    throw new CodRefundProcessingError("This endpoint only processes COD refunds", 409);
+  }
+  if (currentRefund.paymentStatus === RefundStatus.PROCESSED) {
+    throw new CodRefundProcessingError("Processed refunds cannot be marked failed", 409);
+  }
+  throw new CodRefundProcessingError("Refund state changed before failure update", 409);
 }

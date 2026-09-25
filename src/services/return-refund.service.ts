@@ -7,9 +7,11 @@ import ReturnRefund, {
 } from "@/models/ReturnRefund";
 import ReturnRequest, { ReturnStatus } from "@/models/ReturnRequest";
 import {
+  codRefundDestinationSchema,
   createRefundSchema,
   type CreateRefundInput,
 } from "@/validations/refund.validation";
+import type { CodRefundDestination } from "@/validations/refund.validation";
 
 export class ReturnRefundServiceError extends Error {
   constructor(
@@ -26,6 +28,7 @@ type ReturnRefundSource = {
   user: { toString(): string };
   order: { toString(): string };
   status: ReturnStatus;
+  codRefundDestination?: CodRefundDestination;
   items: Array<{
     product: { toString(): string };
     productName: string;
@@ -153,7 +156,7 @@ async function createRefundRecord(
         _id: returnRequestId,
         user: userId,
       })
-        .select("_id user order status items")
+        .select("_id user order status items codRefundDestination")
         .session(transactionSession)
         .lean()) as ReturnRefundSource | null;
 
@@ -186,6 +189,7 @@ async function createRefundRecord(
       }
 
       let paymentMethod: RefundPaymentMethod;
+      let codRefundDestination: CodRefundDestination | undefined;
       if (order.paymentMethod === PaymentMethod.ONLINE) {
         if (order.paymentStatus !== PaymentStatus.PAID) {
           throw new ReturnRefundServiceError(
@@ -195,6 +199,16 @@ async function createRefundRecord(
         }
         paymentMethod = RefundPaymentMethod.ONLINE;
       } else if (order.paymentMethod === PaymentMethod.COD) {
+        const destinationResult = codRefundDestinationSchema.safeParse(
+          returnRequest.codRefundDestination,
+        );
+        if (!destinationResult.success) {
+          throw new ReturnRefundServiceError(
+            "A valid COD refund destination is required",
+            422,
+          );
+        }
+        codRefundDestination = destinationResult.data;
         paymentMethod = RefundPaymentMethod.COD;
       } else {
         throw new ReturnRefundServiceError("Unsupported payment method", 422);
@@ -242,6 +256,17 @@ async function createRefundRecord(
             refundAmount: calculation.refundAmount,
             currency: calculation.currency,
             paymentMethod,
+            ...(codRefundDestination
+              ? codRefundDestination.refundMethod === "BANK_ACCOUNT"
+                ? {
+                    refundMethod: codRefundDestination.refundMethod,
+                    bankAccount: codRefundDestination.bankAccount,
+                  }
+                : {
+                    refundMethod: codRefundDestination.refundMethod,
+                    upiId: codRefundDestination.upiId,
+                  }
+              : {}),
             paymentStatus: RefundStatus.PENDING,
             processingKey: `return-refund:${returnRequestId}`,
           },

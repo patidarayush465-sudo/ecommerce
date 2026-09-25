@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { z } from "zod";
 
+import { codRefundDestinationSchema } from "@/validations/refund.validation";
+
 const objectIdSchema = z.string().refine(
   (value) => mongoose.Types.ObjectId.isValid(value),
   "Must be a valid MongoDB ObjectId",
@@ -30,6 +32,7 @@ export const createReturnRequestSchema = z
     items: z.array(returnItemRequestSchema).min(1),
     reason: returnReasonSchema,
     reasonDetails: z.string().trim().max(500).optional(),
+    refundDestination: codRefundDestinationSchema.optional(),
   })
   .strict()
   .superRefine((value, context) => {

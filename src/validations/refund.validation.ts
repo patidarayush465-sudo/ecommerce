@@ -8,6 +8,37 @@ const objectIdSchema = z.string().refine(
 
 export const refundPaymentMethodSchema = z.enum(["ONLINE", "COD"]);
 
+const bankAccountDetailsSchema = z
+  .object({
+    accountHolderName: z.string().trim().min(2).max(100),
+    accountNumber: z.string().trim().regex(/^\d{9,18}$/, "Invalid bank account number"),
+    ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Invalid IFSC code"),
+  })
+  .strict();
+
+const upiDetailsSchema = z
+  .object({
+    upiId: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{2,}@[a-z0-9.-]{2,}$/, "Invalid UPI ID"),
+  })
+  .strict();
+
+export const codRefundDestinationSchema = z.discriminatedUnion("refundMethod", [
+  z
+    .object({
+      refundMethod: z.literal("BANK_ACCOUNT"),
+      bankAccount: bankAccountDetailsSchema,
+    })
+    .strict(),
+  z
+    .object({
+      refundMethod: z.literal("UPI"),
+      upiId: upiDetailsSchema.shape.upiId,
+    })
+    .strict(),
+]);
+
+export type CodRefundDestination = z.infer<typeof codRefundDestinationSchema>;
+
 export const refundItemSchema = z
   .object({
     productId: objectIdSchema,
