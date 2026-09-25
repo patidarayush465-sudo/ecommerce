@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { isActiveReturn, type CustomerReturn } from "@/components/customer/return-data";
+
 type OrderSummary = {
   id: string;
   orderNumber: string;
@@ -55,6 +57,7 @@ export default function CustomerOrdersPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [activeReturnIds, setActiveReturnIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const controller = new AbortController();
@@ -76,6 +79,24 @@ export default function CustomerOrdersPage() {
         }
         setOrders(body.data ?? []);
         setPagination(body.pagination);
+        const returnsResponse = await fetch("/api/customer/returns?page=1&limit=50", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (returnsResponse.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (returnsResponse.ok) {
+          const returnsBody = (await returnsResponse.json()) as { returns?: CustomerReturn[] };
+          setActiveReturnIds(
+            Object.fromEntries(
+              (returnsBody.returns ?? [])
+                .filter((returnRequest) => isActiveReturn(returnRequest.status))
+                .map((returnRequest) => [returnRequest.orderId, returnRequest.id]),
+            ),
+          );
+        }
         setErrorMessage("");
       } catch (error: unknown) {
         if (error instanceof DOMException && error.name === "AbortError")
@@ -208,6 +229,18 @@ export default function CustomerOrdersPage() {
                     >
                       Get Support
                     </Link>
+                    {order.orderStatus === "DELIVERED" && (
+                      <Link
+                        href={
+                          activeReturnIds[order.id]
+                            ? `/customer/returns/${activeReturnIds[order.id]}`
+                            : `/customer/orders/${order.id}/return`
+                        }
+                        className="rounded-lg border border-amber-300 px-4 py-2 text-center text-sm font-semibold text-amber-300 hover:bg-amber-300 hover:text-zinc-950"
+                      >
+                        {activeReturnIds[order.id] ? "View Return" : "Return"}
+                      </Link>
+                    )}
                     {canCancelOrder(order) &&
                       (cancelOrderId === order.id ? (
                         <div className="rounded-lg border border-zinc-700 p-3">

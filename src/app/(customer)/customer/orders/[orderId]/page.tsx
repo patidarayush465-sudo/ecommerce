@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { isActiveReturn, type CustomerReturn } from "@/components/customer/return-data";
+
 type OrderItem = {
   product: string;
   productName: string;
@@ -125,6 +127,7 @@ export default function CustomerOrderDetailPage() {
   const [reviewStatuses, setReviewStatuses] = useState<ProductReviewStatus[]>(
     [],
   );
+  const [activeReturn, setActiveReturn] = useState<CustomerReturn | null>(null);
   const pricingSummary = order ? getPricingSummary(order.items) : null;
 
   useEffect(() => {
@@ -188,6 +191,38 @@ export default function CustomerOrderDetailPage() {
     void loadReviewStatuses();
     return () => controller.abort();
   }, [order]);
+
+  useEffect(() => {
+    if (!order || order.orderStatus !== "DELIVERED") return;
+    const controller = new AbortController();
+    async function loadActiveReturn() {
+      try {
+        const response = await fetch("/api/customer/returns?page=1&limit=50", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (response.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!response.ok) return;
+        const body = (await response.json()) as { returns?: CustomerReturn[] };
+        setActiveReturn(
+          (body.returns ?? []).find(
+            (returnRequest) =>
+              returnRequest.orderId === order.id &&
+              isActiveReturn(returnRequest.status),
+          ) ?? null,
+        );
+      } catch (error: unknown) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setActiveReturn(null);
+        }
+      }
+    }
+    void loadActiveReturn();
+    return () => controller.abort();
+  }, [order, router]);
 
   async function handleCancelOrder() {
     if (!order) return;
@@ -292,6 +327,18 @@ export default function CustomerOrderDetailPage() {
                 >
                   Get Support
                 </Link>
+                {order.orderStatus === "DELIVERED" && (
+                  <Link
+                    href={
+                      activeReturn
+                        ? `/customer/returns/${activeReturn.id}`
+                        : `/customer/orders/${order.id}/return`
+                    }
+                    className="rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-300 hover:text-zinc-950"
+                  >
+                    {activeReturn ? "View Return" : "Return"}
+                  </Link>
+                )}
                 <p className="text-sm text-zinc-400">
                   {formatDate(order.createdAt)}
                 </p>
@@ -591,6 +638,18 @@ export default function CustomerOrderDetailPage() {
                       </button>
                     )}
                   </div>
+                )}
+                {order.orderStatus === "DELIVERED" && (
+                  <Link
+                    href={
+                      activeReturn
+                        ? `/customer/returns/${activeReturn.id}`
+                        : `/customer/orders/${order.id}/return`
+                    }
+                    className="mt-5 block w-full rounded-lg border border-amber-300 px-4 py-3 text-center text-sm font-semibold text-amber-300 hover:bg-amber-300 hover:text-zinc-950"
+                  >
+                    {activeReturn ? "View Return" : "Return an item"}
+                  </Link>
                 )}
                 <Link
                   href="/customer/orders"

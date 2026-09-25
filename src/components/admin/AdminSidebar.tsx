@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import NotificationRegistrationButton from "@/components/common/NotificationRegistrationButton";
 
-type IconName = "dashboard" | "users" | "products" | "categories" | "subcategories" | "orders" | "support";
+type IconName = "dashboard" | "users" | "products" | "categories" | "subcategories" | "orders" | "returns" | "support";
 
 type NavigationItem = {
   label: string;
@@ -19,6 +19,7 @@ const navigationItems: NavigationItem[] = [
   { label: "Users", href: "/admin/users", icon: "users" },
   { label: "Products", href: "/admin/products", icon: "products" },
   { label: "Orders", href: "/admin/orders", icon: "orders" },
+  { label: "Returns", href: "/admin/returns", icon: "returns" },
   { label: "Support", href: "/admin/support", icon: "support" },
   { label: "Categories", href: "/admin/categories", icon: "categories" },
   {
@@ -85,6 +86,15 @@ function NavigationIcon({ name }: { name: IconName }) {
         <svg {...commonProps}>
           <path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
           <path d="M8 7h8M8 11h8M8 15h5" />
+        </svg>
+      );
+    case "returns":
+      return (
+        <svg {...commonProps}>
+          <path d="M9 7H4v5" />
+          <path d="m4 12 3-3" />
+          <path d="M5 17a8 8 0 1 0 2-9" />
+          <path d="M12 8v4l3 2" />
         </svg>
       );
     case "support":

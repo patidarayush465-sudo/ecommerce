@@ -75,6 +75,7 @@ export async function deductOrderStock(
   });
 }
 
+
 export async function restoreOrderStock(
   orderId: string,
   session?: mongoose.ClientSession,
@@ -108,5 +109,39 @@ export async function restoreOrderStock(
 
     order.stockDeducted = false;
     await order.save({ session: transactionSession });
+  });
+}
+
+export class InventoryRestorationError extends Error {
+  status = 500;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "InventoryRestorationError";
+  }
+}
+
+export async function restoreReturnedStock(
+  items: Array<{ product: { toString(): string }; quantity: number }>,
+  session?: mongoose.ClientSession,
+) {
+  await withOptionalSession(session, async (transactionSession) => {
+    for (const item of items) {
+      if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+        throw new InventoryRestorationError("Invalid returned quantity");
+      }
+
+      const result = await Product.updateOne(
+        { _id: item.product },
+        { $inc: { stock: item.quantity } },
+        { session: transactionSession },
+      );
+
+      if (result.matchedCount !== 1) {
+        throw new InventoryRestorationError(
+          "Unable to restore inventory because a returned product no longer exists",
+        );
+      }
+    }
   });
 }

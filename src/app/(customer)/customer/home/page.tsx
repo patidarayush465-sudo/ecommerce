@@ -55,6 +55,12 @@ export default function CustomerHomePage() {
               Support
             </Link>
             <Link
+              href="/customer/returns"
+              className="rounded-lg border border-zinc-700 px-6 py-3 font-semibold text-zinc-50 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
+            >
+              My Returns
+            </Link>
+            <Link
               href="/customer/wishlist"
               className="rounded-lg border border-zinc-700 px-6 py-3 font-semibold text-zinc-50 transition-colors hover:border-zinc-500 hover:bg-zinc-900"
             >
