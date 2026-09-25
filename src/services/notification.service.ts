@@ -29,10 +29,16 @@ export async function sendPushNotification(tokens: string[], notification: PushN
 
   let result;
   try {
+    const data = Object.fromEntries(
+      Object.entries({
+        title: notification.title,
+        body: notification.body,
+        ...(notification.data ?? {}),
+      }).map(([key, value]) => [key, String(value)]),
+    );
     result = await getFirebaseMessaging().sendEachForMulticast({
       tokens: uniqueTokens,
-      notification: { title: notification.title, body: notification.body },
-      data: notification.data,
+      data,
     });
   } catch (error: unknown) {
     logFirebaseError(error);
