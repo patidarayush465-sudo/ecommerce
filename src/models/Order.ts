@@ -203,6 +203,10 @@ const OrderSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    orderCancellationNotificationSent: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
@@ -243,13 +247,16 @@ const hasOrderFailureNotificationSentPath = cachedOrderModel
 const hasOrderDeliveredNotificationSentPath = cachedOrderModel
   ? Boolean(cachedOrderModel.schema.path("orderDeliveredNotificationSent"))
   : false;
+const hasOrderCancellationNotificationSentPath = cachedOrderModel
+  ? Boolean(cachedOrderModel.schema.path("orderCancellationNotificationSent"))
+  : false;
 
-if (cachedOrderModel && (!hasDeliveryChargePath || !hasInvoiceNumberPath || !hasInvoiceUrlPath || !hasInvoicePublicIdPath || !hasOrderItemPricingPaths || !hasRazorpayFeePath || !hasRazorpayTaxPath || !hasOrderConfirmationNotificationSentPath || !hasOrderFailureNotificationSentPath || !hasOrderDeliveredNotificationSentPath)) {
+if (cachedOrderModel && (!hasDeliveryChargePath || !hasInvoiceNumberPath || !hasInvoiceUrlPath || !hasInvoicePublicIdPath || !hasOrderItemPricingPaths || !hasRazorpayFeePath || !hasRazorpayTaxPath || !hasOrderConfirmationNotificationSentPath || !hasOrderFailureNotificationSentPath || !hasOrderDeliveredNotificationSentPath || !hasOrderCancellationNotificationSentPath)) {
   delete mongoose.models.Order;
 }
 
 const Order =
-  (hasDeliveryChargePath && hasInvoiceNumberPath && hasInvoiceUrlPath && hasInvoicePublicIdPath && hasOrderItemPricingPaths && hasRazorpayFeePath && hasRazorpayTaxPath && hasOrderConfirmationNotificationSentPath && hasOrderFailureNotificationSentPath && hasOrderDeliveredNotificationSentPath
+  (hasDeliveryChargePath && hasInvoiceNumberPath && hasInvoiceUrlPath && hasInvoicePublicIdPath && hasOrderItemPricingPaths && hasRazorpayFeePath && hasRazorpayTaxPath && hasOrderConfirmationNotificationSentPath && hasOrderFailureNotificationSentPath && hasOrderDeliveredNotificationSentPath && hasOrderCancellationNotificationSentPath
     ? cachedOrderModel
     : undefined) ??
   mongoose.model("Order", OrderSchema);

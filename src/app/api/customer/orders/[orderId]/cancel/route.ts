@@ -23,6 +23,7 @@ import {
   createFullRazorpayRefund,
   RefundProcessingError,
 } from "@/services/refund.service";
+import { sendOrderCancellationNotifications } from "@/services/order-cancellation.service";
 
 class CancellationError extends Error {
   constructor(
@@ -237,6 +238,7 @@ export async function POST(
       currentOrder.paymentStatus === PaymentStatus.PAID
     ) {
       await cancelPaidOnlineOrder(orderId, userId);
+      await sendOrderCancellationNotifications(orderId);
 
       return NextResponse.json({
         success: true,
@@ -281,6 +283,8 @@ export async function POST(
     } finally {
       await session.endSession();
     }
+
+    await sendOrderCancellationNotifications(orderId);
 
     return NextResponse.json({
       success: true,
