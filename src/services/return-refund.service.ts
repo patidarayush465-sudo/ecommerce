@@ -201,11 +201,19 @@ async function createRefundRecord(
       }
 
       const calculation = calculateReturnRefundAmount(returnRequest);
+      const validationItems = calculation.items.map(
+        (item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          amount: item.amount,
+        }),
+      );
       const input: CreateRefundInput = {
         returnRequestId,
         orderId: getId(order._id),
         userId,
-        items: calculation.items,
+        items: validationItems,
         refundAmount: calculation.refundAmount,
         currency: calculation.currency,
         paymentMethod,
