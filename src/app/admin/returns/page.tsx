@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 type ReturnStatus = "REQUESTED" | "CONFIRMED" | "PICKUP" | "RECEIVED" | "COMPLETED" | "REJECTED";
 type ReturnItem = { productId: string; productName: string; quantity: number; unitPrice: number; subtotal: number };
@@ -24,7 +24,7 @@ type Pagination = { page: number; limit: number; total: number; totalPages: numb
 type ReturnsResponse = { message?: string; returns?: ReturnSummary[]; pagination?: Pagination };
 
 const LIMIT = 10;
-const RETURN_STATUSES: Array<ReturnStatus | ""> = ["", "REQUESTED", "CONFIRMED", "PICKUP", "RECEIVED", "COMPLETED", "REJECTED"];
+const RETURN_STATUSES: ReturnStatus[] = ["REQUESTED", "CONFIRMED", "PICKUP", "RECEIVED", "COMPLETED", "REJECTED"];
 const STATUS_LABELS: Record<ReturnStatus, string> = {
   REQUESTED: "Return Requested",
   CONFIRMED: "Return Confirmed",
@@ -44,7 +44,7 @@ function statusClass(status: ReturnStatus) {
   return "bg-amber-50 text-amber-700";
 }
 
-export default function AdminReturnsPage() {
+function AdminReturnsContent() {
   const router = useRouter();
   const query = useSearchParams();
   const searchParam = query.get("search") ?? "";
@@ -133,7 +133,7 @@ export default function AdminReturnsPage() {
             <label htmlFor="return-status-filter" className="block text-sm font-medium text-slate-700">Return status</label>
             <select id="return-status-filter" value={status} onChange={(event) => updateFilters(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm">
               <option value="">All</option>
-              {RETURN_STATUSES.slice(1).map((value) => <option key={value} value={value}>{STATUS_LABELS[value]}</option>)}
+              {RETURN_STATUSES.map((value) => <option key={value} value={value}>{STATUS_LABELS[value]}</option>)}
             </select>
           </div>
         </div>
@@ -150,5 +150,21 @@ export default function AdminReturnsPage() {
         </>}
       </div>
     </section>
+  );
+}
+
+export default function AdminReturnsPage() {
+  return (
+    <Suspense
+      fallback={
+        <section className="mx-auto max-w-7xl">
+          <p className="p-10 text-center text-sm text-slate-500" role="status">
+            Loading returns...
+          </p>
+        </section>
+      }
+    >
+      <AdminReturnsContent />
+    </Suspense>
   );
 }

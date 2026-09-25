@@ -194,6 +194,7 @@ export default function CustomerOrderDetailPage() {
 
   useEffect(() => {
     if (!order || order.orderStatus !== "DELIVERED") return;
+    const currentOrder = order;
     const controller = new AbortController();
     async function loadActiveReturn() {
       try {
@@ -210,7 +211,7 @@ export default function CustomerOrderDetailPage() {
         setActiveReturn(
           (body.returns ?? []).find(
             (returnRequest) =>
-              returnRequest.orderId === order.id &&
+              returnRequest.orderId === currentOrder.id &&
               isActiveReturn(returnRequest.status),
           ) ?? null,
         );
