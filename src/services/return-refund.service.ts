@@ -139,14 +139,13 @@ function isDuplicateKeyError(error: unknown) {
 async function createRefundRecord(
   returnRequestId: string,
   userId: string,
+  session?: mongoose.ClientSession,
 ) {
-  const session = await mongoose.startSession();
-  try {
-    return await session.withTransaction(async () => {
+  async function createWithinSession(transactionSession: mongoose.ClientSession) {
       const existingRefund = await ReturnRefund.findOne({
         returnRequest: returnRequestId,
       })
-        .session(session)
+        .session(transactionSession)
         .lean();
       if (existingRefund) return existingRefund;
 
@@ -155,7 +154,7 @@ async function createRefundRecord(
         user: userId,
       })
         .select("_id user order status items")
-        .session(session)
+        .session(transactionSession)
         .lean()) as ReturnRefundSource | null;
 
       if (!returnRequest) {
@@ -173,7 +172,7 @@ async function createRefundRecord(
         user: userId,
       })
         .select("_id user paymentMethod paymentStatus")
-        .session(session)
+        .session(transactionSession)
         .lean();
 
       if (!order) {
@@ -239,18 +238,27 @@ async function createRefundRecord(
             processingKey: `return-refund:${returnRequestId}`,
           },
         ],
-        { session },
+        { session: transactionSession },
       );
       return createdRefund.toObject();
-    });
+  }
+
+  if (session) return createWithinSession(session);
+
+  const ownedSession = await mongoose.startSession();
+  try {
+    return await ownedSession.withTransaction(() =>
+      createWithinSession(ownedSession),
+    );
   } finally {
-    await session.endSession();
+    await ownedSession.endSession();
   }
 }
 
 export async function createReturnRefund(
   returnRequestId: string,
   userId: string,
+  session?: mongoose.ClientSession,
 ) {
   assertValidReturnRequestId(returnRequestId);
   if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -258,7 +266,7 @@ export async function createReturnRefund(
   }
 
   try {
-    return await createRefundRecord(returnRequestId, userId);
+    return await createRefundRecord(returnRequestId, userId, session);
   } catch (error: unknown) {
     if (isDuplicateKeyError(error)) {
       const existingRefund = await getReturnRefundByReturnRequestId(returnRequestId);

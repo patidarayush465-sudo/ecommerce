@@ -13,6 +13,7 @@ import {
   restoreReturnedStock,
 } from "@/services/inventory.service";
 import { sendReturnStatusNotifications } from "@/services/return-notification.service";
+import { createReturnRefund } from "@/services/return-refund.service";
 import { validateReturnStatusTransition } from "@/services/return.service";
 
 const adminReturnStatusSchema = z
@@ -130,7 +131,7 @@ export async function PATCH(
     try {
       updatedReturn = await session.withTransaction(async () => {
         const currentReturn = await ReturnRequest.findById(returnId)
-          .select("_id status items inventoryRestored")
+          .select("_id user status items inventoryRestored")
           .session(session)
           .lean();
 
@@ -160,6 +161,13 @@ export async function PATCH(
         }
         if (requestedStatus === ReturnStatus.RECEIVED) statusUpdate.receivedAt = changedAt;
         if (requestedStatus === ReturnStatus.COMPLETED) {
+          if (currentReturn.status === ReturnStatus.RECEIVED) {
+            await createReturnRefund(
+              returnId,
+              currentReturn.user.toString(),
+              session,
+            );
+          }
           await restoreReturnedStock(currentReturn.items, session);
           statusUpdate.completedAt = changedAt;
           statusUpdate.inventoryRestored = true;
