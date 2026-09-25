@@ -205,14 +205,31 @@ export async function registerForWebPushToken(options: WebPushRegistrationOption
   }
 
   notify("get-token-calling");
-  const token = await withTimeout(getToken(messaging, {
-    vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
-    serviceWorkerRegistration: registration,
-  }), "Firebase getToken");
-  console.info("[NotificationDiagnostics] getToken returned", {
-    tokenExists: Boolean(token),
-    tokenLength: token?.length ?? 0,
-  });
+  let token: string;
+  try {
+    token = await withTimeout(getToken(messaging, {
+      vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: readyRegistration,
+    }), "Firebase getToken");
+    console.info("[NotificationDiagnostics] getToken returned", {
+      tokenExists: Boolean(token),
+      tokenLength: token?.length ?? 0,
+      vapidKeyExists: Boolean(process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY),
+      notificationPermission: Notification.permission,
+      serviceWorkerState: readyRegistration.active?.state ?? "none",
+    });
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: unknown; message?: unknown; name?: unknown };
+    console.error("[NotificationDiagnostics] getToken failed", {
+      name: typeof firebaseError.name === "string" ? firebaseError.name : error instanceof Error ? error.name : "UnknownError",
+      code: typeof firebaseError.code === "string" ? firebaseError.code : null,
+      message: typeof firebaseError.message === "string" ? firebaseError.message : error instanceof Error ? error.message : "Unknown Firebase getToken error",
+      vapidKeyExists: Boolean(process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY),
+      notificationPermission: Notification.permission,
+      serviceWorkerState: readyRegistration.active?.state ?? "none",
+    });
+    throw error;
+  }
   notify("get-token-completed");
   return token;
 }
