@@ -153,7 +153,7 @@ export async function registerForWebPushToken(options: WebPushRegistrationOption
   const messaging = getMessaging(app);
   if (!foregroundMessageListenerRegistered) {
     console.info("[NotificationDiagnostics] Registering foreground onMessage listener");
-    onMessage(messaging, (payload) => {
+    onMessage(messaging, async (payload) => {
       console.info("[NotificationDiagnostics] Foreground onMessage callback triggered", {
         messageId: payload.messageId ?? null,
         ...summarizePayload(payload),
@@ -173,11 +173,18 @@ export async function registerForWebPushToken(options: WebPushRegistrationOption
         });
         return;
       }
-      const title = payload.notification?.title ?? payload.data?.title ?? "New Notification";
-      const body = payload.notification?.body ?? payload.data?.body ?? "You have a new notification.";
-      console.info("[NotificationDiagnostics] Attempting new Notification", { title, body });
+      const title = payload.data?.title ?? payload.notification?.title ?? "New Notification";
+      const body = payload.data?.body ?? payload.notification?.body ?? "You have a new notification.";
+      console.info("[NotificationDiagnostics] Attempting Service Worker notification", {
+        title,
+        body,
+        messageId: payload.messageId ?? null,
+      });
       try {
-        const notification = new Notification(title, { body });
+        await registration.showNotification(title, {
+          body,
+          data: payload.data ?? {},
+        });
         if (payload.messageId) {
           displayedForegroundMessageIds.add(payload.messageId);
           if (displayedForegroundMessageIds.size > 100) {
@@ -185,13 +192,9 @@ export async function registerForWebPushToken(options: WebPushRegistrationOption
             if (oldestMessageId) displayedForegroundMessageIds.delete(oldestMessageId);
           }
         }
-        notification.onclick = () => {
-          notification.close();
-          window.focus();
-        };
-        console.info("[NotificationDiagnostics] new Notification succeeded");
+        console.info("[NotificationDiagnostics] Service Worker notification succeeded");
       } catch (error: unknown) {
-        console.error("[NotificationDiagnostics] new Notification failed", {
+        console.error("[NotificationDiagnostics] Service Worker notification failed", {
           name: error instanceof Error ? error.name : "UnknownError",
           message: error instanceof Error ? error.message : "Unknown notification error",
         });
