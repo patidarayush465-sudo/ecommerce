@@ -211,56 +211,6 @@ const OrderSchema = new Schema(
   { timestamps: true },
 );
 
-const cachedOrderModel = mongoose.models.Order;
-const hasDeliveryChargePath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("deliveryCharge"))
-  : false;
-const hasInvoiceNumberPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("invoiceNumber"))
-  : false;
-const hasInvoiceUrlPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("invoiceUrl"))
-  : false;
-const hasInvoicePublicIdPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("invoicePublicId"))
-  : false;
-const cachedOrderItemsSchema = cachedOrderModel?.schema.path("items") as
-  | { schema?: { path(path: string): unknown } }
-  | undefined;
-const hasOrderItemPricingPaths = cachedOrderItemsSchema?.schema
-  ? ["mrp", "discountPercent"].every((path) =>
-      Boolean(cachedOrderItemsSchema.schema?.path(path)),
-    )
-  : false;
-const hasRazorpayFeePath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("razorpayFee"))
-  : false;
-const hasRazorpayTaxPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("razorpayTax"))
-  : false;
-const hasOrderConfirmationNotificationSentPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("orderConfirmationNotificationSent"))
-  : false;
-const hasOrderFailureNotificationSentPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("orderFailureNotificationSent"))
-  : false;
-const hasOrderDeliveredNotificationSentPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("orderDeliveredNotificationSent"))
-  : false;
-const hasOrderCancellationNotificationSentPath = cachedOrderModel
-  ? Boolean(cachedOrderModel.schema.path("orderCancellationNotificationSent"))
-  : false;
+const Order = mongoose.models.Order || mongoose.model("Order", OrderSchema);
 
-if (cachedOrderModel && (!hasDeliveryChargePath || !hasInvoiceNumberPath || !hasInvoiceUrlPath || !hasInvoicePublicIdPath || !hasOrderItemPricingPaths || !hasRazorpayFeePath || !hasRazorpayTaxPath || !hasOrderConfirmationNotificationSentPath || !hasOrderFailureNotificationSentPath || !hasOrderDeliveredNotificationSentPath || !hasOrderCancellationNotificationSentPath)) {
-  delete mongoose.models.Order;
-}
-
-const Order =
-  (hasDeliveryChargePath && hasInvoiceNumberPath && hasInvoiceUrlPath && hasInvoicePublicIdPath && hasOrderItemPricingPaths && hasRazorpayFeePath && hasRazorpayTaxPath && hasOrderConfirmationNotificationSentPath && hasOrderFailureNotificationSentPath && hasOrderDeliveredNotificationSentPath && hasOrderCancellationNotificationSentPath
-    ? cachedOrderModel
-    : undefined) ??
-  mongoose.model("Order", OrderSchema);
-
-const TypedOrder = Order as typeof mongoose.models.Order;
-
-export default TypedOrder;
+export default Order;
