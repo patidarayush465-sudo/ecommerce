@@ -10,14 +10,17 @@ type Product = {
   id: string;
   name: string;
   description: string;
-  mrp: number;
-  discountPercent: number;
-  sellingPrice: number;
+  mrp?: number | null;
+  price?: number | null;
+  discountPercent?: number | null;
+  sellingPrice?: number | null;
   stock: number;
-  images: Image[];
-  category: Ref;
-  subcategory: Ref;
+  images?: Image[] | null;
+  category?: Ref | null;
+  subcategory?: Ref | null;
   isActive: boolean;
+  pricingValid?: boolean;
+  pricingError?: string | null;
 };
 type Category = { id: string; name: string; isActive: boolean };
 type Subcategory = {
@@ -129,8 +132,20 @@ function errorMessage(
   return body.message ?? "Unable to complete the request.";
 }
 
-function priceLabel(value: number) {
-  return value.toLocaleString("en-IN", { style: "currency", currency: "INR" });
+function priceLabel(value: number | null | undefined) {
+  const normalized = Number.isFinite(value) ? Number(value) : 0;
+  return normalized.toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR",
+  });
+}
+
+function productCategoryName(category?: Ref | null) {
+  return category?.name ?? "Uncategorized";
+}
+
+function productSubcategoryName(subcategory?: Ref | null) {
+  return subcategory?.name ?? "No subcategory";
 }
 
 function calculateSellingPrice(mrp: string, discountPercent: string) {
@@ -368,15 +383,15 @@ export default function AdminProductsPage() {
       setForm({
         name: body.data.name,
         description: body.data.description,
-        mrp: String(body.data.mrp),
-        discountPercent: String(body.data.discountPercent),
-        sellingPrice: String(body.data.sellingPrice),
+        mrp: String(body.data.mrp ?? ""),
+        discountPercent: String(body.data.discountPercent ?? 0),
+        sellingPrice: String(body.data.sellingPrice ?? ""),
         stock: String(body.data.stock),
-        category: body.data.category.id,
-        subcategory: body.data.subcategory.id,
+        category: body.data.category?.id ?? "",
+        subcategory: body.data.subcategory?.id ?? "",
         isActive: body.data.isActive,
       });
-      setExistingImages(body.data.images);
+      setExistingImages(body.data.images ?? []);
     } catch {
       setModalError("Network error while loading the product.");
     } finally {
@@ -696,7 +711,7 @@ export default function AdminProductsPage() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={product.images[0]?.url}
+                            src={product.images?.[0]?.url ?? ""}
                             alt=""
                             className="h-12 w-12 rounded-lg object-cover"
                           />
@@ -710,15 +725,25 @@ export default function AdminProductsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">{product.category.name}</td>
-                      <td className="px-5 py-4">{product.subcategory.name}</td>
+                      <td className="px-5 py-4">
+                        {productCategoryName(product.category)}
+                      </td>
+                      <td className="px-5 py-4">
+                        {productSubcategoryName(product.subcategory)}
+                      </td>
                       <td className="px-5 py-4">
                         <p className="font-semibold text-slate-950">
-                          {priceLabel(product.sellingPrice)}
+                          {priceLabel(product.sellingPrice ?? product.price ?? 0)}
                         </p>
-                        {product.discountPercent > 0 && (
+                        {product.pricingValid === false && (
+                          <p className="text-xs text-amber-700">
+                            {product.pricingError ?? "Invalid stored pricing"}
+                          </p>
+                        )}
+                        {(Number(product.discountPercent) > 0 || product.pricingValid !== false) && (
                           <p className="text-xs text-slate-500">
-                            MRP {priceLabel(product.mrp)} · {product.discountPercent}% OFF
+                            MRP {priceLabel(product.mrp ?? product.price ?? 0)}
+                            {Number(product.discountPercent) > 0 ? ` · ${product.discountPercent}% OFF` : ""}
                           </p>
                         )}
                         <p className="text-xs text-slate-500">
@@ -1115,15 +1140,20 @@ export default function AdminProductsPage() {
                     </p>
                   </div>
                   <p className="text-sm text-slate-600">
-                    {detail.category.name} / {detail.subcategory.name} · MRP{" "}
-                    {priceLabel(detail.mrp)} · {priceLabel(detail.sellingPrice)} ·{" "}
-                    {detail.discountPercent}% OFF · {detail.stock} in stock
+                    {productCategoryName(detail.category)} / {productSubcategoryName(detail.subcategory)} · MRP{" "}
+                    {priceLabel(detail.mrp ?? detail.price ?? 0)} · {priceLabel(detail.sellingPrice ?? detail.price ?? 0)} ·{" "}
+                    {detail.pricingValid === false ? "Invalid stored pricing" : `${detail.discountPercent ?? 0}% OFF`} · {detail.stock} in stock
                   </p>
+                  {detail.pricingValid === false && (
+                    <p className="text-sm text-amber-700">
+                      {detail.pricingError ?? "Invalid stored pricing"}
+                    </p>
+                  )}
                   <p className="text-sm font-semibold">
                     {detail.isActive ? "Active" : "Inactive"}
                   </p>
                   <div className="flex flex-wrap gap-3">
-                    {detail.images.map((image) => (
+                    {(detail.images ?? []).map((image) => (
                       <img
                         key={image.publicId}
                         src={image.url}
