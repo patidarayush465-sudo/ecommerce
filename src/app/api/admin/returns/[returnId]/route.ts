@@ -22,12 +22,33 @@ type PopulatedOrder = {
   orderNumber?: string;
 };
 
+function getSafeReferenceId(value: unknown) {
+  if (value == null) return null;
+
+  if (typeof value === "object") {
+    const objectValue = value as { _id?: { toString(): string } };
+    if (objectValue._id && typeof objectValue._id.toString === "function") {
+      return objectValue._id.toString();
+    }
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object" && typeof (value as { toString?: () => string }).toString === "function") {
+    return (value as { toString: () => string }).toString();
+  }
+
+  return null;
+}
+
 function serializeReturn(returnRequest: {
   _id: { toString(): string };
-  user: PopulatedCustomer | { toString(): string };
-  order: PopulatedOrder | { toString(): string };
+  user: PopulatedCustomer | { toString(): string } | null;
+  order: PopulatedOrder | { toString(): string } | null;
   items: Array<{
-    product: { toString(): string };
+    product: { toString(): string } | null;
     productName: string;
     productImage?: string;
     quantity: number;
@@ -55,30 +76,37 @@ function serializeReturn(returnRequest: {
   createdAt: Date;
   updatedAt: Date;
 }) {
-  const customer = "name" in returnRequest.user
-    ? {
-        id: returnRequest.user._id.toString(),
-        name: returnRequest.user.name,
-        email: returnRequest.user.email,
-        ...(returnRequest.user.mobile ? { mobile: returnRequest.user.mobile } : {}),
-      }
-    : { id: returnRequest.user.toString() };
-  const order = "orderNumber" in returnRequest.order
-    ? {
-        id: returnRequest.order._id.toString(),
-        ...(returnRequest.order.orderNumber
-          ? { orderNumber: returnRequest.order.orderNumber }
-          : {}),
-      }
-    : { id: returnRequest.order.toString() };
+  const customer =
+    returnRequest.user && typeof returnRequest.user === "object" && "name" in returnRequest.user
+      ? {
+          id: getSafeReferenceId(returnRequest.user._id ?? returnRequest.user) ?? null,
+          name: returnRequest.user.name ?? "Unknown customer",
+          email: returnRequest.user.email ?? "Unavailable",
+          ...(returnRequest.user.mobile ? { mobile: returnRequest.user.mobile } : {}),
+        }
+      : {
+          id: getSafeReferenceId(returnRequest.user) ?? null,
+          name: "Unknown customer",
+          email: "Unavailable",
+        };
+  const order =
+    returnRequest.order && typeof returnRequest.order === "object" && "orderNumber" in returnRequest.order
+      ? {
+          id: getSafeReferenceId(returnRequest.order._id ?? returnRequest.order) ?? null,
+          orderNumber: returnRequest.order.orderNumber ?? null,
+        }
+      : {
+          id: getSafeReferenceId(returnRequest.order) ?? null,
+          orderNumber: null,
+        };
 
   return {
     id: returnRequest._id.toString(),
     user: customer,
     order,
     items: returnRequest.items.map((item) => ({
-      productId: item.product.toString(),
-      productName: item.productName,
+      productId: getSafeReferenceId(item.product),
+      productName: item.productName ?? "Unknown product",
       productImage: item.productImage ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,

@@ -24,10 +24,10 @@ type SafeOrder = {
 
 type ReturnListRecord = {
   _id: { toString(): string };
-  user: SafeCustomer | { toString(): string };
-  order: SafeOrder | { toString(): string };
+  user: SafeCustomer | { toString(): string } | null;
+  order: SafeOrder | { toString(): string } | null;
   items: Array<{
-    product: { toString(): string };
+    product: { toString(): string } | null;
     productName: string;
     quantity: number;
     unitPrice: number;
@@ -45,28 +45,62 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function serializeCustomer(user: SafeCustomer | { toString(): string }) {
-  if ("name" in user) {
-    return {
-      id: user._id.toString(),
-      name: user.name,
-      email: user.email,
-      ...(user.mobile ? { mobile: user.mobile } : {}),
-    };
+function getSafeReferenceId(value: unknown) {
+  if (value == null) return null;
+
+  if (typeof value === "object") {
+    const objectValue = value as { _id?: { toString(): string } };
+    if (objectValue._id && typeof objectValue._id.toString === "function") {
+      return objectValue._id.toString();
+    }
   }
 
-  return { id: user.toString() };
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object" && typeof (value as { toString?: () => string }).toString === "function") {
+    return (value as { toString: () => string }).toString();
+  }
+
+  return null;
 }
 
-function serializeOrder(order: SafeOrder | { toString(): string }) {
-  if ("orderNumber" in order) {
+function serializeCustomer(user: SafeCustomer | { toString(): string } | null | undefined) {
+  const fallbackId = getSafeReferenceId(user);
+
+  if (user && typeof user === "object" && "name" in user) {
+    const populatedUser = user as SafeCustomer;
     return {
-      id: order._id.toString(),
-      ...(order.orderNumber ? { orderNumber: order.orderNumber } : {}),
+      id: getSafeReferenceId(populatedUser._id ?? user) ?? fallbackId ?? null,
+      name: populatedUser.name ?? "Unknown customer",
+      email: populatedUser.email ?? "Unavailable",
+      ...(populatedUser.mobile ? { mobile: populatedUser.mobile } : {}),
     };
   }
 
-  return { id: order.toString() };
+  return {
+    id: fallbackId ?? null,
+    name: "Unknown customer",
+    email: "Unavailable",
+  };
+}
+
+function serializeOrder(order: SafeOrder | { toString(): string } | null | undefined) {
+  const fallbackId = getSafeReferenceId(order);
+
+  if (order && typeof order === "object" && "orderNumber" in order) {
+    const populatedOrder = order as SafeOrder;
+    return {
+      id: getSafeReferenceId(populatedOrder._id ?? order) ?? fallbackId ?? null,
+      orderNumber: populatedOrder.orderNumber ?? null,
+    };
+  }
+
+  return {
+    id: fallbackId ?? null,
+    orderNumber: null,
+  };
 }
 
 function serializeReturn(returnRequest: ReturnListRecord) {
@@ -75,8 +109,8 @@ function serializeReturn(returnRequest: ReturnListRecord) {
     user: serializeCustomer(returnRequest.user),
     order: serializeOrder(returnRequest.order),
     items: returnRequest.items.map((item) => ({
-      productId: item.product.toString(),
-      productName: item.productName,
+      productId: getSafeReferenceId(item.product),
+      productName: item.productName ?? "Unknown product",
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       subtotal: item.subtotal,
