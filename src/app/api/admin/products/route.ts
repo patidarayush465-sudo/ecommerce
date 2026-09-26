@@ -55,33 +55,57 @@ type ProductRecord = {
   sellingPrice?: number;
   stock: number;
   images: Array<{ url: string; publicId: string }>;
-  category: PopulatedReference;
-  subcategory: PopulatedReference;
+  category?: PopulatedReference | null;
+  subcategory?: PopulatedReference | null;
   isActive: boolean;
 };
 
 function serializeProduct(product: ProductRecord) {
-  const pricing = getProductPricing(product);
-  return {
-    id: product._id.toString(),
-    name: product.name,
-    description: product.description,
-    mrp: pricing.mrp,
-    discountPercent: pricing.discountPercent,
-    sellingPrice: pricing.sellingPrice,
-    price: pricing.sellingPrice,
-    stock: product.stock,
-    images: product.images,
-    category: {
-      id: product.category._id.toString(),
-      name: product.category.name,
-    },
-    subcategory: {
-      id: product.subcategory._id.toString(),
-      name: product.subcategory.name,
-    },
-    isActive: product.isActive,
-  };
+  const category = product.category && typeof product.category === "object" ? {
+    id: product.category._id.toString(),
+    name: product.category.name,
+  } : null;
+  const subcategory = product.subcategory && typeof product.subcategory === "object" ? {
+    id: product.subcategory._id.toString(),
+    name: product.subcategory.name,
+  } : null;
+
+  try {
+    const pricing = getProductPricing(product);
+
+    return {
+      id: product._id.toString(),
+      name: product.name,
+      description: product.description,
+      mrp: pricing.mrp,
+      discountPercent: pricing.discountPercent,
+      sellingPrice: pricing.sellingPrice,
+      price: pricing.sellingPrice,
+      stock: product.stock,
+      images: product.images,
+      category,
+      subcategory,
+      isActive: product.isActive,
+      pricingValid: true,
+    };
+  } catch {
+    return {
+      id: product._id.toString(),
+      name: product.name,
+      description: product.description,
+      mrp: product.mrp ?? null,
+      discountPercent: product.discountPercent ?? null,
+      sellingPrice: product.sellingPrice ?? product.price ?? null,
+      price: product.price ?? product.sellingPrice ?? null,
+      stock: product.stock,
+      images: product.images,
+      category,
+      subcategory,
+      isActive: product.isActive,
+      pricingValid: false,
+      pricingError: "Invalid stored pricing",
+    };
+  }
 }
 
 function escapeRegex(value: string) {
