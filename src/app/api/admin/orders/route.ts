@@ -17,15 +17,15 @@ const ORDER_STATUSES = Object.values(OrderStatus);
 const PAYMENT_STATUSES = Object.values(PaymentStatus);
 
 type CustomerRecord = {
-  _id: { toString(): string };
-  name: string;
-  email: string;
+  _id?: { toString(): string } | null;
+  name?: string | null;
+  email?: string | null;
 };
 
 type OrderSummaryRecord = {
   _id: { toString(): string };
   orderNumber: string;
-  user: CustomerRecord;
+  user: CustomerRecord | null;
   totalItems: number;
   subtotal: number;
   deliveryCharge?: number;
@@ -40,11 +40,30 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function serializeCustomer(user: CustomerRecord) {
+function getSafeObjectId(value: unknown) {
+  if (value == null) return null;
+
+  if (typeof value === "object") {
+    const objectValue = value as { _id?: { toString(): string } | null };
+    if (objectValue._id && typeof objectValue._id.toString === "function") {
+      return objectValue._id.toString();
+    }
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function serializeCustomer(user: CustomerRecord | null | undefined) {
+  const id = user ? getSafeObjectId(user._id) ?? null : null;
+
   return {
-    id: user._id.toString(),
-    name: user.name,
-    email: user.email,
+    id,
+    name: user?.name ?? "Unknown customer",
+    email: user?.email ?? "Unavailable",
   };
 }
 

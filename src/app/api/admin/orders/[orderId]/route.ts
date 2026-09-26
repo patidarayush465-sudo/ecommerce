@@ -14,22 +14,22 @@ import Order, {
 } from "@/models/Order";
 
 type CustomerRecord = {
-  _id: { toString(): string };
-  name: string;
-  email: string;
+  _id?: { toString(): string } | null;
+  name?: string | null;
+  email?: string | null;
   mobile?: string;
   profileImage?: { url?: string; publicId?: string };
-  role: string;
+  role?: string;
 };
 
 type OrderRecord = {
   _id: { toString(): string };
   orderNumber: string;
-  user: CustomerRecord;
+  user: CustomerRecord | null;
   items: Array<{
-    product: { toString(): string };
-    productName: string;
-    productImage: string;
+    product?: { toString(): string } | string | null;
+    productName?: string | null;
+    productImage?: string | null;
     mrp?: number;
     discountPercent?: number;
     price: number;
@@ -63,14 +63,33 @@ type OrderRecord = {
   updatedAt: Date;
 };
 
-function serializeCustomer(user: CustomerRecord) {
+function getSafeObjectId(value: unknown) {
+  if (value == null) return null;
+
+  if (typeof value === "object") {
+    const objectValue = value as { _id?: { toString(): string } | null };
+    if (objectValue._id && typeof objectValue._id.toString === "function") {
+      return objectValue._id.toString();
+    }
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function serializeCustomer(user: CustomerRecord | null | undefined) {
+  const id = user ? getSafeObjectId(user._id) ?? null : null;
+
   return {
-    id: user._id.toString(),
-    name: user.name,
-    email: user.email,
-    mobile: user.mobile,
-    profileImage: user.profileImage,
-    role: user.role,
+    id,
+    name: user?.name ?? "Unknown customer",
+    email: user?.email ?? "Unavailable",
+    mobile: user?.mobile ?? null,
+    profileImage: user?.profileImage ?? null,
+    role: user?.role ?? null,
   };
 }
 
@@ -80,9 +99,9 @@ function serializeOrder(order: OrderRecord) {
     orderNumber: order.orderNumber,
     customer: serializeCustomer(order.user),
     items: order.items.map((item) => ({
-      product: item.product.toString(),
-      productName: item.productName,
-      productImage: item.productImage,
+      product: getSafeObjectId(item.product) ?? null,
+      productName: item.productName ?? "Unknown product",
+      productImage: item.productImage ?? null,
       mrp: item.mrp,
       discountPercent: item.discountPercent,
       price: item.price,
